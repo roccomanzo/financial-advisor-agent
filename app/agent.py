@@ -15,6 +15,10 @@
 
 from google.adk.agents import Agent
 from google.adk.apps import App
+from app.app_utils.telemetry import setup_telemetry
+
+# Initialize logging/telemetry defaults on import
+setup_telemetry()
 from google.adk.models import Gemini
 from google.genai import types
 
