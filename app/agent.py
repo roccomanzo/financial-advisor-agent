@@ -15,7 +15,7 @@
 
 from google.adk.agents import Agent
 from google.adk.apps import App
-from app.app_utils.telemetry import setup_telemetry
+from app.app_utils.telemetry import setup_telemetry, GuardrailPlugin
 
 # Initialize logging/telemetry defaults on import
 setup_telemetry()
@@ -36,7 +36,7 @@ from app.agents import (
 root_agent = Agent(
     name="financial_coordinator",
     model=Gemini(
-        model="gemini-flash-latest",
+        model="gemini-pro-latest",
         retry_options=types.HttpRetryOptions(attempts=3),
     ),
     instruction="""You are the lead Financial Coordinator and Advisor.
@@ -70,4 +70,5 @@ Rules:
 app = App(
     root_agent=root_agent,
     name="app",
+    plugins=[GuardrailPlugin(name="guardrail")],
 )

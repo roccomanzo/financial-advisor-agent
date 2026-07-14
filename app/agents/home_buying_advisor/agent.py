@@ -16,12 +16,15 @@ from pathlib import Path
 
 from google.adk.agents import Agent
 from google.adk.models import Gemini
+from google.adk.tools import FunctionTool
 from google.genai import types
 
 from app.tools import (
     calculate_loan_amortization,
+    check_housing_risk_requires_confirmation,
     get_local_tax_and_insurance_rates,
     get_mortgage_rate_by_credit_score,
+    verify_affordability_risk,
 )
 
 
@@ -34,7 +37,7 @@ def create_agent():
     return Agent(
         name="home_buying_advisor",
         model=Gemini(
-            model="gemini-flash-latest",
+            model="gemini-pro-latest",
             retry_options=types.HttpRetryOptions(attempts=3),
         ),
         description="Specialist for home buying affordability, mortgage options, tax and insurance estimates, and PITI calculations.",
@@ -43,5 +46,9 @@ def create_agent():
             calculate_loan_amortization,
             get_mortgage_rate_by_credit_score,
             get_local_tax_and_insurance_rates,
+            FunctionTool(
+                verify_affordability_risk,
+                require_confirmation=check_housing_risk_requires_confirmation,
+            ),
         ],
     )

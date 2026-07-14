@@ -30,7 +30,7 @@ def create_agent():
     return Agent(
         name="investment_advisor",
         model=Gemini(
-            model="gemini-flash-latest",
+            model="gemini-pro-latest",
             retry_options=types.HttpRetryOptions(attempts=3),
         ),
         description="Specialist for investment portfolios, index fund education, stock warnings, and explaining corporate financial statements.",

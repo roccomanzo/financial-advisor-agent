@@ -17,7 +17,10 @@ import logging
 import os
 import re
 
+from google.adk.agents.callback_context import CallbackContext
+from google.adk.plugins.base_plugin import BasePlugin
 from google.adk.runners import Runner
+from google.genai import types as genai_types
 from opentelemetry import trace
 
 logger = logging.getLogger(__name__)
@@ -265,3 +268,50 @@ def setup_agent_engine_telemetry() -> None:
         )
     except Exception as e:
         logger.warning(f"Could not initialize telemetry: {e}")
+
+
+class GuardrailPlugin(BasePlugin):
+    """Active policy enforcement guardrail plugin that acts as a self-evaluation loop."""
+
+    async def after_agent_callback(
+        self, *, callback_context: CallbackContext, **kwargs
+    ) -> genai_types.Content | None:
+        events = (
+            callback_context.session.events if callback_context.session else []
+        )
+        if not events:
+            return None
+        last_event = events[-1]
+        if not last_event.content or not last_event.content.parts:
+            return None
+
+        response_text = "".join(
+            part.text for part in last_event.content.parts if part.text
+        )
+
+        # 1. Active PII Redaction Guardrail
+        # Double check that no SSN, credit cards, or emails were accidentally output in cleartext.
+        redacted = redact_pii(response_text)
+        if redacted != response_text:
+            return genai_types.Content(
+                role="model", parts=[genai_types.Part.from_text(text=redacted)]
+            )
+
+        # 2. Disclaimer Policy Guardrail (Self-Eval / Enforcement)
+        # If the query is financial advice but lacks the warning disclaimer, auto-append it!
+        disclaimer = (
+            "Disclaimer: This is for educational purposes only and does "
+            "not constitute professional investment, tax, or financial advice."
+        )
+        if "disclaimer" not in response_text.lower() and len(response_text) > 120:
+            # Skip appending to short safety rejections or simple greetings
+            if not any(
+                k in response_text.lower()
+                for k in ["cannot answer", "decline", "strictly a financial"]
+            ):
+                updated_text = response_text + f"\n\n*{disclaimer}*"
+                return genai_types.Content(
+                    role="model", parts=[genai_types.Part.from_text(text=updated_text)]
+                )
+
+        return None

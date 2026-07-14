@@ -324,3 +324,28 @@ def get_local_tax_and_insurance_rates(state: str) -> dict:
         "formatted_property_tax_rate": f"{round(result['property_tax_rate'] * 100, 2)}%",
         "avg_annual_insurance": result["avg_annual_insurance"],
     }
+
+
+def verify_affordability_risk(piti_percentage: float) -> dict:
+    """Validates the housing affordability risk level.
+
+    Args:
+        piti_percentage: The monthly PITI housing cost as a percentage of gross income (0 to 100).
+
+    Returns:
+        A dictionary containing the safety status and warning message.
+    """
+    if piti_percentage > 40:
+        return {
+            "status": "warning",
+            "message": f"CRITICAL RISK: Projected housing cost consumes {piti_percentage:.1f}% of gross income, which exceeds the high-risk limit of 40%.",
+        }
+    return {
+        "status": "safe",
+        "message": f"Housing cost consumes {piti_percentage:.1f}% of gross income.",
+    }
+
+
+def check_housing_risk_requires_confirmation(piti_percentage: float, **kwargs) -> bool:
+    # Require explicit human approval / confirmation if the PITI ratio exceeds 40%
+    return piti_percentage > 40
