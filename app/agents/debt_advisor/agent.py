@@ -30,7 +30,7 @@ def create_agent():
     return Agent(
         name="debt_advisor",
         model=Gemini(
-            model="gemini-2.5-flash",
+            model="gemini-3.5-flash",
             retry_options=types.HttpRetryOptions(attempts=3),
         ),
         description="Specialist for debt management, mortgages, and payoff strategies (Snowball vs. Avalanche).",
