@@ -276,9 +276,7 @@ class GuardrailPlugin(BasePlugin):
     async def after_agent_callback(
         self, *, callback_context: CallbackContext, **kwargs
     ) -> genai_types.Content | None:
-        events = (
-            callback_context.session.events if callback_context.session else []
-        )
+        events = callback_context.session.events if callback_context.session else []
         if not events:
             return None
         last_event = events[-1]

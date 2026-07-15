@@ -32,6 +32,27 @@ from app.agents import (
     create_home_buying_advisor,
 )
 
+import asyncio
+from google.adk.tools.preload_memory_tool import PreloadMemoryTool
+from google.adk.agents.callback_context import CallbackContext
+
+
+async def generate_memories_callback(callback_context: CallbackContext) -> None:
+    """Trigger background memory generation task to avoid user latency block."""
+
+    async def run_indexing():
+        try:
+            await callback_context.add_session_to_memory()
+        except Exception as e:
+            import logging
+
+            logging.getLogger("agent.memory").warning(
+                f"Background memory sync warning: {e}"
+            )
+
+    asyncio.create_task(run_indexing())
+
+
 # Root coordinator agent
 root_agent = Agent(
     name="financial_coordinator",
@@ -39,6 +60,8 @@ root_agent = Agent(
         model="gemini-pro-latest",
         retry_options=types.HttpRetryOptions(attempts=3),
     ),
+    tools=[PreloadMemoryTool()],
+    after_agent_callback=generate_memories_callback,
     instruction="""You are the lead Financial Coordinator and Advisor.
 Your job is to greet the user, understand their financial query, and delegate the task to the appropriate specialist:
 - For retirement accumulation planning and target nest eggs, delegate to `retirement_planner`.
@@ -67,8 +90,16 @@ Rules:
     ],
 )
 
+from google.adk.apps.app import EventsCompactionConfig
+from google.adk.apps.llm_event_summarizer import LlmEventSummarizer
+
 app = App(
     root_agent=root_agent,
     name="app",
     plugins=[GuardrailPlugin(name="guardrail")],
+    events_compaction_config=EventsCompactionConfig(
+        compaction_interval=15,
+        overlap_size=3,
+        summarizer=LlmEventSummarizer(llm=Gemini(model="gemini-flash-latest")),
+    ),
 )
