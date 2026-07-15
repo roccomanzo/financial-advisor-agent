@@ -19,6 +19,14 @@ from app.app_utils.telemetry import setup_telemetry, GuardrailPlugin
 
 # Initialize logging/telemetry defaults on import
 setup_telemetry()
+
+import os
+import vertexai
+
+# Initialize cross-region client for us multi-region inference routing
+project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or "aerobic-forge-500417-t3"
+vertexai.Client(project=project_id, location="us")
+
 from google.adk.models import Gemini
 from google.genai import types
 
