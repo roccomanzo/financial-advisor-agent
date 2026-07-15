@@ -28,7 +28,7 @@ def create_agent():
     return Agent(
         name="budgeting_expert",
         model=Gemini(
-            model="gemini-flash-latest",
+            model="gemini-3.5-flash",
             retry_options=types.HttpRetryOptions(attempts=3),
         ),
         description="Specialist for day-to-day budgeting, expense tracking, and living on a fixed income or retirement drawdowns.",

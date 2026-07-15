@@ -30,7 +30,7 @@ def create_agent():
     return Agent(
         name="major_purchase_advisor",
         model=Gemini(
-            model="gemini-flash-latest",
+            model="gemini-3.5-flash",
             retry_options=types.HttpRetryOptions(attempts=3),
         ),
         description="Specialist for short-to-medium term savings goals like buying a house, car, or funding major purchases.",

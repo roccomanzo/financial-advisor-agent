@@ -30,7 +30,7 @@ def create_agent():
     return Agent(
         name="retirement_planner",
         model=Gemini(
-            model="gemini-flash-latest",
+            model="gemini-3.5-flash",
             retry_options=types.HttpRetryOptions(attempts=3),
         ),
         description="Specialist for pre-retirement planning, calculating target nest eggs, and contribution rates.",
