@@ -97,10 +97,13 @@ pythonpath = "."
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.hatch.build.targets.wheel]
-packages = ["app","frontend"]
+packages = ["app"]
 
 [tool.uv]
-environments = ["sys_platform == 'darwin' and python_version == '3.11'"]
+environments = [
+    "sys_platform == 'darwin' and python_version == '3.11'",
+    "sys_platform == 'linux' and python_version == '3.11'"
+]
 
 
 
