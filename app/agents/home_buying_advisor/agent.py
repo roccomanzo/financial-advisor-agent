@@ -37,7 +37,7 @@ def create_agent():
     return Agent(
         name="home_buying_advisor",
         model=Gemini(
-            model="projects/1005191648957/locations/us/publishers/google/models/gemini-3.5-flash",
+            model="gemini-pro-latest",
             retry_options=types.HttpRetryOptions(attempts=3),
         ),
         description="Specialist for home buying affordability, mortgage options, tax and insurance estimates, and PITI calculations.",

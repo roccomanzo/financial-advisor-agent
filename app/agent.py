@@ -57,7 +57,7 @@ async def generate_memories_callback(callback_context: CallbackContext) -> None:
 root_agent = Agent(
     name="financial_coordinator",
     model=Gemini(
-        model="projects/1005191648957/locations/us/publishers/google/models/gemini-3.5-flash",
+        model="gemini-pro-latest",
         retry_options=types.HttpRetryOptions(attempts=3),
     ),
     tools=[PreloadMemoryTool()],
@@ -101,6 +101,6 @@ app = App(
     events_compaction_config=EventsCompactionConfig(
         compaction_interval=15,
         overlap_size=3,
-        summarizer=LlmEventSummarizer(llm=Gemini(model="projects/1005191648957/locations/us/publishers/google/models/gemini-3.5-flash")),
+        summarizer=LlmEventSummarizer(llm=Gemini(model="gemini-flash-latest")),
     ),
 )
