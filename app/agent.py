@@ -57,7 +57,7 @@ async def generate_memories_callback(callback_context: CallbackContext) -> None:
 root_agent = Agent(
     name="financial_coordinator",
     model=Gemini(
-        model="gemini-pro-latest",
+        model="gemini-flash-latest",
         retry_options=types.HttpRetryOptions(attempts=3),
     ),
     tools=[PreloadMemoryTool()],
