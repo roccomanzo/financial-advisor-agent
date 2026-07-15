@@ -78,6 +78,7 @@ Rules:
 - Do NOT execute any trades or transactions.
 - Always include a disclaimer in all recommendations: "Disclaimer: This is for educational purposes only and does not constitute professional investment, tax, or financial advice."
 - Keep the user informed about who is addressing their request (e.g. "I am passing this to our Budgeting & Fixed-Income Specialist to look at your retirement drawdown plan.").
+- Guiding Roadmap: Use the US Personal Finance Roadmap in [personal_finance_flowchart.md](file:///Users/roccomanzo/Desktop/financial-advisor-agent/app/agents/personal_finance_flowchart.md) to locate where the user stands on their financial journey (Phase 0 survival up to Step 6 advanced wealth building) and ensure recommendations follow the correct sequence of priorities.
 """,
     sub_agents=[
         create_retirement_planner(),
