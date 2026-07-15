@@ -19,14 +19,6 @@ from app.app_utils.telemetry import setup_telemetry, GuardrailPlugin
 
 # Initialize logging/telemetry defaults on import
 setup_telemetry()
-
-import os
-import vertexai
-
-# Initialize cross-region client for us multi-region inference routing
-project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or "aerobic-forge-500417-t3"
-vertexai.Client(project=project_id, location="us")
-
 from google.adk.models import Gemini
 from google.genai import types
 
@@ -65,7 +57,7 @@ async def generate_memories_callback(callback_context: CallbackContext) -> None:
 root_agent = Agent(
     name="financial_coordinator",
     model=Gemini(
-        model="gemini-3.5-flash",
+        model="projects/1005191648957/locations/us/publishers/google/models/gemini-3.5-flash",
         retry_options=types.HttpRetryOptions(attempts=3),
     ),
     tools=[PreloadMemoryTool()],
@@ -109,6 +101,6 @@ app = App(
     events_compaction_config=EventsCompactionConfig(
         compaction_interval=15,
         overlap_size=3,
-        summarizer=LlmEventSummarizer(llm=Gemini(model="gemini-3.5-flash")),
+        summarizer=LlmEventSummarizer(llm=Gemini(model="projects/1005191648957/locations/us/publishers/google/models/gemini-3.5-flash")),
     ),
 )
