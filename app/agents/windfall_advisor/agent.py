@@ -30,7 +30,7 @@ def create_agent():
     return Agent(
         name="windfall_advisor",
         model=Gemini(
-            model="gemini-flash-latest",
+            model="gemini-2.0-flash",
             retry_options=types.HttpRetryOptions(attempts=3),
         ),
         description="Specialist for managing sudden wealth, inheritances, IPOs, bonuses, or windfalls.",
