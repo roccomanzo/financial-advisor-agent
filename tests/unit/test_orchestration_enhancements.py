@@ -13,13 +13,13 @@ from app.tools import (
 def test_verify_affordability_risk():
     # Safe PITI percentage
     res_safe = verify_affordability_risk(25.0)
-    assert res_safe["status"] == "safe"
-    assert "Housing cost consumes" in res_safe["message"]
+    assert res_safe.status == "safe"
+    assert "Housing cost consumes" in res_safe.message
 
     # Risky PITI percentage
     res_risky = verify_affordability_risk(45.0)
-    assert res_risky["status"] == "warning"
-    assert "CRITICAL RISK" in res_risky["message"]
+    assert res_risky.status == "warning"
+    assert "CRITICAL RISK" in res_risky.message
 
 
 def test_check_housing_risk_requires_confirmation():

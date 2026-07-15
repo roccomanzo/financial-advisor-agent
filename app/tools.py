@@ -15,18 +15,76 @@
 import json
 import logging
 import urllib.request
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
 
-def get_stock_price(ticker: str) -> dict:
+# --- Tool Output Schemas ---
+
+
+class StockPriceOutput(BaseModel):
+    status: str = Field(description="Execution status, e.g., 'success' or 'error'.")
+    symbol: str = Field(description="The stock ticker symbol.")
+    price: float = Field(description="Current stock price.")
+    currency: str = Field(description="Currency of the price.")
+    high: float = Field(description="Daily high price.")
+    low: float = Field(description="Daily low price.")
+    error: str = Field(default="", description="Error details if execution failed.")
+
+
+class CompoundInterestOutput(BaseModel):
+    status: str = Field(description="Execution status.")
+    total_balance: float = Field(description="Total balance at the end of the term.")
+    total_contributions: float = Field(description="Total contributions made.")
+    interest_earned: float = Field(description="Total interest earned.")
+    error: str = Field(default="", description="Error details if execution failed.")
+
+
+class LoanAmortizationOutput(BaseModel):
+    status: str = Field(description="Execution status.")
+    monthly_payment: float = Field(description="Calculated monthly P&I payment.")
+    total_payments: float = Field(description="Total amount paid over the term.")
+    total_interest: float = Field(description="Total interest paid over the term.")
+    error: str = Field(default="", description="Error details if execution failed.")
+
+
+class MortgageRateOutput(BaseModel):
+    status: str = Field(description="Execution status.")
+    credit_score: int = Field(description="The input credit score.")
+    credit_tier: str = Field(description="Credit score tier description.")
+    estimated_rate: float = Field(description="Estimated annual interest rate as a decimal.")
+    formatted_rate: str = Field(description="Estimated rate formatted as a percentage string.")
+    error: str = Field(default="", description="Error details if execution failed.")
+
+
+class LocalRatesOutput(BaseModel):
+    status: str = Field(description="Execution status.")
+    state: str = Field(description="Cleaned state name.")
+    property_tax_rate: float = Field(description="State property tax rate as a decimal.")
+    formatted_property_tax_rate: str = Field(
+        description="Property tax rate formatted as a percentage."
+    )
+    avg_annual_insurance: float = Field(
+        description="Average annual home insurance premium."
+    )
+    error: str = Field(default="", description="Error details if execution failed.")
+
+
+class AffordabilityRiskOutput(BaseModel):
+    status: str = Field(description="Safety status, either 'safe' or 'warning'.")
+    message: str = Field(description="Affordability risk warning or safety message.")
+
+
+
+def get_stock_price(ticker: str) -> StockPriceOutput:
     """Gets the current stock price and key metrics for a given ticker symbol.
 
     Args:
         ticker: The stock ticker symbol (e.g., 'AAPL', 'MSFT', 'VOO').
 
     Returns:
-        A dictionary containing the current price, symbol, currency, and high/low values.
+        A StockPriceOutput containing status, price, high, low, and currency.
     """
     ticker = ticker.upper().strip()
 
@@ -44,36 +102,45 @@ def get_stock_price(ticker: str) -> dict:
             chart = data.get("chart", {})
             result = chart.get("result", [])
             if not result:
-                return {
-                    "status": "error",
-                    "message": f"No data found for ticker {ticker}",
-                }
+                return StockPriceOutput(
+                    status="error",
+                    symbol=ticker,
+                    price=0.0,
+                    currency="USD",
+                    high=0.0,
+                    low=0.0,
+                    error=f"No data found for ticker {ticker}",
+                )
 
             meta = result[0].get("meta", {})
-            current_price = meta.get("regularMarketPrice")
+            current_price = meta.get("regularMarketPrice") or 0.0
             currency = meta.get("currency", "USD")
 
             # Get latest indicators
             indicators = result[0].get("indicators", {})
             quote = indicators.get("quote", [{}])[0]
-            high = quote.get("high", [None])[-1]
-            low = quote.get("low", [None])[-1]
+            high = quote.get("high", [0.0])[-1] or 0.0
+            low = quote.get("low", [0.0])[-1] or 0.0
 
-            return {
-                "status": "success",
-                "ticker": ticker,
-                "current_price": current_price,
-                "currency": currency,
-                "high_24h": high,
-                "low_24h": low,
-                "source": "Yahoo Finance",
-            }
+            return StockPriceOutput(
+                status="success",
+                symbol=ticker,
+                price=current_price,
+                currency=currency,
+                high=high,
+                low=low,
+            )
     except Exception as e:
         logger.error(f"Failed fetching stock price from Yahoo: {e}")
-        return {
-            "status": "error",
-            "message": f"Could not fetch data for ticker {ticker}: {e!s}",
-        }
+        return StockPriceOutput(
+            status="error",
+            symbol=ticker,
+            price=0.0,
+            currency="USD",
+            high=0.0,
+            low=0.0,
+            error=f"Could not fetch data for ticker {ticker}: {e!s}",
+        )
 
 
 def calculate_compound_interest(
@@ -82,7 +149,7 @@ def calculate_compound_interest(
     years: int,
     monthly_contribution: float = 0.0,
     compounding_frequency: int = 12,
-) -> dict:
+) -> CompoundInterestOutput:
     """Calculates compound interest for investment/savings projections.
 
     Args:
@@ -93,31 +160,40 @@ def calculate_compound_interest(
         compounding_frequency: How many times per year interest is compounded. Defaults to 12 (monthly).
 
     Returns:
-        A dictionary with the final balance, total principal contributions, and total interest earned.
+        A CompoundInterestOutput with final balance, total contributions, and interest earned.
     """
-    total_contributions = principal + (monthly_contribution * 12 * years)
+    try:
+        total_contributions = principal + (monthly_contribution * 12 * years)
 
-    n = compounding_frequency
-    r = annual_rate
-    t = years
-    pmt = monthly_contribution
+        n = compounding_frequency
+        r = annual_rate
+        t = years
+        pmt = monthly_contribution
 
-    p_comp = principal * ((1 + r / n) ** (n * t))
+        p_comp = principal * ((1 + r / n) ** (n * t))
 
-    if r == 0:
-        pmt_comp = pmt * 12 * t
-    else:
-        pmt_comp = pmt * (((1 + r / n) ** (n * t) - 1) / (r / n))
+        if r == 0:
+            pmt_comp = pmt * 12 * t
+        else:
+            pmt_comp = pmt * (((1 + r / n) ** (n * t) - 1) / (r / n))
 
-    total_balance = p_comp + pmt_comp
-    interest_earned = total_balance - total_contributions
+        total_balance = p_comp + pmt_comp
+        interest_earned = total_balance - total_contributions
 
-    return {
-        "starting_principal": principal,
-        "total_contributions": round(total_contributions, 2),
-        "total_interest_earned": round(interest_earned, 2),
-        "final_balance": round(total_balance, 2),
-    }
+        return CompoundInterestOutput(
+            status="success",
+            total_balance=round(total_balance, 2),
+            total_contributions=round(total_contributions, 2),
+            interest_earned=round(interest_earned, 2),
+        )
+    except Exception as e:
+        return CompoundInterestOutput(
+            status="error",
+            total_balance=0.0,
+            total_contributions=0.0,
+            interest_earned=0.0,
+            error=str(e),
+        )
 
 
 def calculate_loan_amortization(
@@ -125,7 +201,7 @@ def calculate_loan_amortization(
     annual_rate: float,
     years: int,
     extra_monthly_payment: float = 0.0,
-) -> dict:
+) -> LoanAmortizationOutput:
     """Calculates loan payment details and amortization metrics for debt payoff analysis.
 
     Args:
@@ -135,68 +211,75 @@ def calculate_loan_amortization(
         extra_monthly_payment: Extra amount paid each month. Defaults to 0.0.
 
     Returns:
-        A dictionary with the standard monthly payment, total interest paid, actual months to pay off, and savings from extra payments.
+        A LoanAmortizationOutput with monthly payment, total payments, and interest paid.
     """
-    r = annual_rate / 12
-    n = years * 12
-    p = loan_amount
+    try:
+        r = annual_rate / 12
+        n = years * 12
+        p = loan_amount
 
-    if r == 0:
-        standard_monthly_payment = p / n
-    else:
-        standard_monthly_payment = p * (r * (1 + r) ** n) / ((1 + r) ** n - 1)
+        if r == 0:
+            standard_monthly_payment = p / n
+        else:
+            standard_monthly_payment = p * (r * (1 + r) ** n) / ((1 + r) ** n - 1)
 
-    balance = p
-    total_interest = 0.0
-    months_elapsed = 0
-    total_paid = 0.0
+        balance = p
+        total_interest = 0.0
+        months_elapsed = 0
+        total_paid = 0.0
 
-    while balance > 0 and months_elapsed < 1200:
-        months_elapsed += 1
-        interest_payment = balance * r
-        principal_payment = (
-            standard_monthly_payment - interest_payment + extra_monthly_payment
+        while balance > 0 and months_elapsed < 1200:
+            months_elapsed += 1
+            interest_payment = balance * r
+            principal_payment = (
+                standard_monthly_payment - interest_payment + extra_monthly_payment
+            )
+
+            if balance < principal_payment:
+                actual_payment = balance + interest_payment
+                principal_payment = balance
+                balance = 0.0
+            else:
+                actual_payment = standard_monthly_payment + extra_monthly_payment
+                balance -= principal_payment
+
+            total_interest += interest_payment
+            total_paid += actual_payment
+
+        return LoanAmortizationOutput(
+            status="success",
+            monthly_payment=round(standard_monthly_payment, 2),
+            total_payments=round(total_paid, 2),
+            total_interest=round(total_interest, 2),
+        )
+    except Exception as e:
+        return LoanAmortizationOutput(
+            status="error",
+            monthly_payment=0.0,
+            total_payments=0.0,
+            total_interest=0.0,
+            error=str(e),
         )
 
-        if balance < principal_payment:
-            actual_payment = balance + interest_payment
-            principal_payment = balance
-            balance = 0.0
-        else:
-            actual_payment = standard_monthly_payment + extra_monthly_payment
-            balance -= principal_payment
 
-        total_interest += interest_payment
-        total_paid += actual_payment
-
-    baseline_total_interest = (standard_monthly_payment * n) - p if r > 0 else 0.0
-    interest_savings = max(0.0, baseline_total_interest - total_interest)
-    months_saved = max(0, n - months_elapsed)
-
-    return {
-        "standard_monthly_payment": round(standard_monthly_payment, 2),
-        "actual_months_to_pay_off": months_elapsed,
-        "total_interest_paid": round(total_interest, 2),
-        "total_amount_paid": round(total_paid, 2),
-        "interest_savings": round(interest_savings, 2),
-        "months_saved": months_saved,
-    }
-
-
-def get_mortgage_rate_by_credit_score(credit_score: int) -> dict:
+def get_mortgage_rate_by_credit_score(credit_score: int) -> MortgageRateOutput:
     """Estimates the current average 30-year fixed mortgage interest rate based on a user's credit score.
 
     Args:
         credit_score: The user's credit score (FICO score between 300 and 850).
 
     Returns:
-        A dictionary containing the estimated interest rate and the credit tier name.
+        A MortgageRateOutput containing status, credit score, tier, and rate.
     """
     if credit_score < 300 or credit_score > 850:
-        return {
-            "status": "error",
-            "message": "Credit score must be between 300 and 850.",
-        }
+        return MortgageRateOutput(
+            status="error",
+            credit_score=credit_score,
+            credit_tier="",
+            estimated_rate=0.0,
+            formatted_rate="",
+            error="Credit score must be between 300 and 850.",
+        )
 
     # Baseline prime 30-year fixed rate (Freddie Mac national average)
     baseline_rate = 0.065
@@ -223,127 +306,137 @@ def get_mortgage_rate_by_credit_score(credit_score: int) -> dict:
         rate = baseline_rate + 0.0200
         tier = "Subprime (<620)"
 
-    return {
-        "status": "success",
-        "credit_score": credit_score,
-        "credit_tier": tier,
-        "estimated_annual_rate": round(rate, 4),
-        "formatted_rate": f"{round(rate * 100, 2)}%",
-    }
+    return MortgageRateOutput(
+        status="success",
+        credit_score=credit_score,
+        credit_tier=tier,
+        estimated_rate=round(rate, 4),
+        formatted_rate=f"{round(rate * 100, 2)}%",
+    )
 
 
-def get_local_tax_and_insurance_rates(state: str) -> dict:
+def get_local_tax_and_insurance_rates(state: str) -> LocalRatesOutput:
     """Returns typical average property tax rates and homeowners insurance averages for a US state.
 
     Args:
         state: The two-letter state abbreviation or full name (e.g. 'TX', 'Texas', 'CA', 'California').
 
     Returns:
-        A dictionary with typical property tax rate (percent of home value) and average annual insurance premium.
+        A LocalRatesOutput with typical tax rate, insurance, and formatted values.
     """
-    state_clean = state.strip().upper()
+    try:
+        state_clean = state.strip().upper()
 
-    # State average database (typical ranges)
-    database = {
-        "TX": {
-            "property_tax_rate": 0.0160,
-            "avg_annual_insurance": 2500.0,
-            "state_name": "Texas",
-        },
-        "TEXAS": {
-            "property_tax_rate": 0.0160,
-            "avg_annual_insurance": 2500.0,
-            "state_name": "Texas",
-        },
-        "CA": {
-            "property_tax_rate": 0.0075,
-            "avg_annual_insurance": 1400.0,
-            "state_name": "California",
-        },
-        "CALIFORNIA": {
-            "property_tax_rate": 0.0075,
-            "avg_annual_insurance": 1400.0,
-            "state_name": "California",
-        },
-        "FL": {
-            "property_tax_rate": 0.0090,
-            "avg_annual_insurance": 4200.0,
-            "state_name": "Florida",
-        },
-        "FLORIDA": {
-            "property_tax_rate": 0.0090,
-            "avg_annual_insurance": 4200.0,
-            "state_name": "Florida",
-        },
-        "NY": {
-            "property_tax_rate": 0.0140,
-            "avg_annual_insurance": 1800.0,
-            "state_name": "New York",
-        },
-        "NEW YORK": {
-            "property_tax_rate": 0.0140,
-            "avg_annual_insurance": 1800.0,
-            "state_name": "New York",
-        },
-        "NJ": {
-            "property_tax_rate": 0.0220,
-            "avg_annual_insurance": 1500.0,
-            "state_name": "New Jersey",
-        },
-        "NEW JERSEY": {
-            "property_tax_rate": 0.0220,
-            "avg_annual_insurance": 1500.0,
-            "state_name": "New Jersey",
-        },
-        "IL": {
-            "property_tax_rate": 0.0200,
-            "avg_annual_insurance": 1600.0,
-            "state_name": "Illinois",
-        },
-        "ILLINOIS": {
-            "property_tax_rate": 0.0200,
-            "avg_annual_insurance": 1600.0,
-            "state_name": "Illinois",
-        },
-    }
+        # State average database (typical ranges)
+        database = {
+            "TX": {
+                "property_tax_rate": 0.0160,
+                "avg_annual_insurance": 2500.0,
+                "state_name": "Texas",
+            },
+            "TEXAS": {
+                "property_tax_rate": 0.0160,
+                "avg_annual_insurance": 2500.0,
+                "state_name": "Texas",
+            },
+            "CA": {
+                "property_tax_rate": 0.0075,
+                "avg_annual_insurance": 1400.0,
+                "state_name": "California",
+            },
+            "CALIFORNIA": {
+                "property_tax_rate": 0.0075,
+                "avg_annual_insurance": 1400.0,
+                "state_name": "California",
+            },
+            "FL": {
+                "property_tax_rate": 0.0090,
+                "avg_annual_insurance": 4200.0,
+                "state_name": "Florida",
+            },
+            "FLORIDA": {
+                "property_tax_rate": 0.0090,
+                "avg_annual_insurance": 4200.0,
+                "state_name": "Florida",
+            },
+            "NY": {
+                "property_tax_rate": 0.0140,
+                "avg_annual_insurance": 1800.0,
+                "state_name": "New York",
+            },
+            "NEW YORK": {
+                "property_tax_rate": 0.0140,
+                "avg_annual_insurance": 1800.0,
+                "state_name": "New York",
+            },
+            "NJ": {
+                "property_tax_rate": 0.0220,
+                "avg_annual_insurance": 1500.0,
+                "state_name": "New Jersey",
+            },
+            "NEW JERSEY": {
+                "property_tax_rate": 0.0220,
+                "avg_annual_insurance": 1500.0,
+                "state_name": "New Jersey",
+            },
+            "IL": {
+                "property_tax_rate": 0.0200,
+                "avg_annual_insurance": 1600.0,
+                "state_name": "Illinois",
+            },
+            "ILLINOIS": {
+                "property_tax_rate": 0.0200,
+                "avg_annual_insurance": 1600.0,
+                "state_name": "Illinois",
+            },
+        }
 
-    # Fallback to national averages
-    result = database.get(
-        state_clean,
-        {
-            "property_tax_rate": 0.0110,
-            "avg_annual_insurance": 1800.0,
-            "state_name": state,
-        },
-    )
+        # Fallback to national averages
+        result = database.get(
+            state_clean,
+            {
+                "property_tax_rate": 0.0110,
+                "avg_annual_insurance": 1800.0,
+                "state_name": state,
+            },
+        )
 
-    return {
-        "status": "success",
-        "state": result["state_name"],
-        "property_tax_rate": result["property_tax_rate"],
-        "formatted_property_tax_rate": f"{round(result['property_tax_rate'] * 100, 2)}%",
-        "avg_annual_insurance": result["avg_annual_insurance"],
-    }
+        return LocalRatesOutput(
+            status="success",
+            state=result["state_name"],
+            property_tax_rate=result["property_tax_rate"],
+            formatted_property_tax_rate=f"{round(result['property_tax_rate'] * 100, 2)}%",
+            avg_annual_insurance=result["avg_annual_insurance"],
+        )
+    except Exception as e:
+        return LocalRatesOutput(
+            status="error",
+            state=state,
+            property_tax_rate=0.0,
+            formatted_property_tax_rate="",
+            avg_annual_insurance=0.0,
+            error=str(e),
+        )
 
 
-def verify_affordability_risk(piti_percentage: float) -> dict:
+def verify_affordability_risk(piti_percentage: float) -> AffordabilityRiskOutput:
     """Validates the housing affordability risk level.
 
     Args:
         piti_percentage: The monthly PITI housing cost as a percentage of gross income (0 to 100).
 
     Returns:
-        A dictionary containing the safety status and warning message.
+        An AffordabilityRiskOutput with safety status and message.
     """
     if piti_percentage > 40:
-        return {
-            "status": "warning",
-            "message": f"CRITICAL RISK: Projected housing cost consumes {piti_percentage:.1f}% of gross income, which exceeds the high-risk limit of 40%.",
-        }
-    return {
-        "status": "safe",
-        "message": f"Housing cost consumes {piti_percentage:.1f}% of gross income.",
-    }
+        return AffordabilityRiskOutput(
+            status="warning",
+            message=f"CRITICAL RISK: Projected housing cost consumes {piti_percentage:.1f}% of gross income, which exceeds the high-risk limit of 40%.",
+        )
+    return AffordabilityRiskOutput(
+        status="safe",
+        message=f"Housing cost consumes {piti_percentage:.1f}% of gross income.",
+    )
 
 
 def check_housing_risk_requires_confirmation(piti_percentage: float, **kwargs) -> bool:
